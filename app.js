@@ -7,52 +7,39 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static("public"));
 
-// Загружаем токены
-const TOKENS = JSON.parse(fs.readFileSync("tokens.json", "utf-8"));
+// Загружаем токены из файла
+const TOKENS = JSON.parse(fs.readFileSync("tokens.json"));
 
 // Настройки
 const CHAIN_ID = 137; // Polygon
-const USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+const USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"; // USDT (Polygon)
 const ODOS_FEE = 0.002;
 const MEXC_FEE = 0.001;
-const USDT_AMOUNT = 50; // сумма покупки
 
 // Рассчёт средней цены покупки/продажи
-function calcAvgPrice(orders, amount, isBuy = true) {
+function calcAvgPrice(orders, amount) {
   let remaining = amount;
   let totalTokens = 0;
 
   for (const [priceStr, qtyStr] of orders) {
     const price = parseFloat(priceStr);
     const qty = parseFloat(qtyStr);
+    const cost = price * qty;
 
-    if (isBuy) {
-      const cost = price * qty;
-      if (remaining >= cost) {
-        totalTokens += qty;
-        remaining -= cost;
-      } else {
-        totalTokens += remaining / price;
-        remaining = 0;
-        break;
-      }
+    if (remaining >= cost) {
+      totalTokens += qty;
+      remaining -= cost;
     } else {
-      if (remaining >= qty) {
-        totalTokens += price * qty;
-        remaining -= qty;
-      } else {
-        totalTokens += price * remaining;
-        remaining = 0;
-        break;
-      }
+      totalTokens += remaining / price;
+      remaining = 0;
+      break;
     }
   }
 
   if (totalTokens === 0) return null;
-  return isBuy ? amount / totalTokens : totalTokens / amount;
+  return amount / totalTokens;
 }
 
-// Главный роут
 app.get("/prices", async (req, res) => {
   const odosPrices = {};
   const mexcPrices = {};
@@ -62,9 +49,9 @@ app.get("/prices", async (req, res) => {
   for (const token of TOKENS) {
     let tokensBought = null;
 
-    // === Покупка на ODOS ===
+    // --- ODOS ---
     try {
-      const effectiveUSDT = USDT_AMOUNT * (1 - ODOS_FEE);
+      const effectiveUSDT = 50 * (1 - ODOS_FEE);
       const odosRes = await fetch("https://api.odos.xyz/sor/quote/v2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,47 +67,58 @@ app.get("/prices", async (req, res) => {
       const out = odosData.outAmounts?.[0];
 
       if (out) {
-        tokensBought = Number(out) / 1e18; // предполагаем decimals = 18
+        tokensBought = Number(out) / 1e18;
         odosPrices[token.symbol] = effectiveUSDT / tokensBought;
       } else {
-        odosPrices[token.symbol] = null;
-        console.warn(`ODOS: нет данных для ${token.symbol}`);
+        odosPrices[token.symbol] = "слишком мало ликвидности";
       }
-    } catch (err) {
-      odosPrices[token.symbol] = null;
-      console.error(`Ошибка ODOS для ${token.symbol}:`, err.message);
+    } catch {
+      odosPrices[token.symbol] = "ошибка API ODOS";
     }
 
-    // === Продажа на MEXC ===
+    // --- MEXC ---
     try {
       const depthRes = await fetch(`https://api.mexc.com/api/v3/depth?symbol=${token.symbol}USDT&limit=50`);
       const depthData = await depthRes.json();
       const asks = depthData.asks;
 
-      if (!asks || asks.length === 0) {
-        mexcPrices[token.symbol] = null;
-        console.warn(`MEXC: нет ордеров для ${token.symbol}`);
-      } else if (tokensBought) {
-        const avgPrice = calcAvgPrice(asks, tokensBought, false);
-        if (avgPrice) {
-          mexcPrices[token.symbol] = avgPrice * (1 - MEXC_FEE);
-          profit[token.symbol] = mexcPrices[token.symbol] * tokensBought - USDT_AMOUNT;
+      if (asks?.length && tokensBought) {
+        let remainingTokens = tokensBought;
+        let totalUSDT = 0;
+
+        for (const [priceStr, qtyStr] of asks) {
+          const price = parseFloat(priceStr);
+          const qty = parseFloat(qtyStr);
+
+          if (remainingTokens >= qty) {
+            totalUSDT += price * qty;
+            remainingTokens -= qty;
+          } else {
+            totalUSDT += price * remainingTokens;
+            remainingTokens = 0;
+            break;
+          }
+        }
+
+        if (remainingTokens === 0) {
+          const usdtAfterFee = totalUSDT * (1 - MEXC_FEE);
+          mexcPrices[token.symbol] = totalUSDT / tokensBought;
+          profit[token.symbol] = usdtAfterFee - 50;
         } else {
-          mexcPrices[token.symbol] = null;
+          mexcPrices[token.symbol] = "слишком мало ликвидности";
           profit[token.symbol] = null;
         }
       } else {
-        mexcPrices[token.symbol] = null;
+        mexcPrices[token.symbol] = "нет данных";
         profit[token.symbol] = null;
       }
-    } catch (err) {
-      mexcPrices[token.symbol] = null;
+    } catch {
+      mexcPrices[token.symbol] = "ошибка API MEXC";
       profit[token.symbol] = null;
-      console.error(`Ошибка MEXC для ${token.symbol}:`, err.message);
     }
 
-    // === Спред ===
-    if (odosPrices[token.symbol] && mexcPrices[token.symbol]) {
+    // --- Спред ---
+    if (typeof odosPrices[token.symbol] === "number" && typeof mexcPrices[token.symbol] === "number") {
       spread[token.symbol] = ((odosPrices[token.symbol] - mexcPrices[token.symbol]) / mexcPrices[token.symbol]) * 100;
     } else {
       spread[token.symbol] = null;
