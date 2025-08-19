@@ -7,17 +7,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static("public"));
 
-// === Загружаем список токенов из tokens.json ===
+// Загружаем токены
 const TOKENS = JSON.parse(fs.readFileSync("./tokens.json", "utf-8"));
 
 const CHAIN_ID = 137; // Polygon
 const USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"; // USDT (Polygon)
-
-// Комиссии
 const ODOS_FEE = 0.002; // 0.2%
 const MEXC_FEE = 0.001; // 0.1%
 
-app.get("/prices", async (req, res) => {
+// API для фронтенда: токены + цены
+app.get("/data", async (req, res) => {
   try {
     const mexcPrices = {};
     const odosPrices = {};
@@ -27,7 +26,7 @@ app.get("/prices", async (req, res) => {
     for (const token of TOKENS) {
       let tokensBought = null;
 
-      // === MEXC покупка токенов на 50 USDT (учёт комиссии 0.1%) ===
+      // MEXC: покупка токенов за 50 USDT
       try {
         const depthRes = await fetch(`https://api.mexc.com/api/v3/depth?symbol=${token.symbol}USDT&limit=50`);
         const depthData = await depthRes.json();
@@ -53,7 +52,7 @@ app.get("/prices", async (req, res) => {
           }
 
           tokensBought = totalTokens;
-          mexcPrices[token.symbol] = 50 / totalTokens; // средняя цена 1 токена
+          mexcPrices[token.symbol] = 50 / totalTokens; // средняя цена
         } else {
           mexcPrices[token.symbol] = null;
         }
@@ -61,7 +60,7 @@ app.get("/prices", async (req, res) => {
         mexcPrices[token.symbol] = null;
       }
 
-      // === ODOS продажа этих токенов ===
+      // ODOS: продажа токенов за USDT
       try {
         if (tokensBought) {
           const odosRes = await fetch("https://api.odos.xyz/sor/quote/v2", {
@@ -96,22 +95,19 @@ app.get("/prices", async (req, res) => {
         profit[token.symbol] = null;
       }
 
-      // === Спред ===
+      // Спред
       if (mexcPrices[token.symbol] && odosPrices[token.symbol]) {
-        spread[token.symbol] =
-          ((odosPrices[token.symbol] - mexcPrices[token.symbol]) / mexcPrices[token.symbol]) * 100;
+        spread[token.symbol] = ((odosPrices[token.symbol] - mexcPrices[token.symbol]) / mexcPrices[token.symbol]) * 100;
       } else {
         spread[token.symbol] = null;
       }
     }
 
-    res.json({ mexc: mexcPrices, odos: odosPrices, spread, profit });
+    res.json({ tokens: TOKENS, mexc: mexcPrices, odos: odosPrices, spread, profit });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Ошибка при получении цен" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
