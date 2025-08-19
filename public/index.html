@@ -13,9 +13,9 @@
   </style>
 </head>
 <body>
-  <h1>📊 MEXC → ODOS</h1>
+  <h1>📊 MEXC → ODOS Arbitrage</h1>
 
-  <table id="mexc-odos">
+  <table id="arb-table">
     <thead>
       <tr>
         <th>Токен</th>
@@ -29,35 +29,39 @@
   </table>
 
 <script>
-  async function loadData() {
-    const res = await fetch("/prices");
-    const data = await res.json();
+async function loadData() {
+  const res = await fetch("/data");
+  const data = await res.json();
 
-    const tbody = document.querySelector("#mexc-odos tbody");
-    tbody.innerHTML = "";
+  const tbody = document.querySelector("#arb-table tbody");
+  tbody.innerHTML = "";
 
-    for (const token of Object.keys(data.mexc)) {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${token}</td>
-        <td>${data.mexc?.[token] ? data.mexc[token].toFixed(6) : "-"}</td>
-        <td>${data.odos?.[token] ? data.odos[token].toFixed(6) : "-"}</td>
-        <td>${data.spread?.[token] ? data.spread[token].toFixed(2) : "-"}%</td>
-        <td>${
-          data.profit?.[token] == null
-            ? "-"
-            : data.profit[token] > 0
-              ? '<span class="profit-pos">+' + data.profit[token].toFixed(4) + "</span>"
-              : '<span class="profit-neg">' + data.profit[token].toFixed(4) + "</span>"
-        }</td>
-      `;
-      tbody.appendChild(row);
-    }
+  for (const token of data.tokens) {
+    const row = document.createElement("tr");
+    const mexcPrice = data.mexc[token.symbol];
+    const odosPrice = data.odos[token.symbol];
+    const spread = data.spread[token.symbol];
+    const profit = data.profit[token.symbol];
+
+    row.innerHTML = `
+      <td>${token.symbol}</td>
+      <td>${mexcPrice ? mexcPrice.toFixed(6) : "-"}</td>
+      <td>${odosPrice ? odosPrice.toFixed(6) : "-"}</td>
+      <td>${spread ? spread.toFixed(2) : "-"}%</td>
+      <td>${
+        profit == null
+          ? "-"
+          : profit > 0
+            ? '<span class="profit-pos">+' + profit.toFixed(4) + "</span>"
+            : '<span class="profit-neg">' + profit.toFixed(4) + "</span>"
+      }</td>
+    `;
+    tbody.appendChild(row);
   }
+}
 
-  setInterval(loadData, 5000);
-  loadData();
+setInterval(loadData, 5000);
+loadData();
 </script>
-
 </body>
 </html>
