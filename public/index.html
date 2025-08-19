@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>MEXC → ODOS Arbitrage</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; margin: 20px 0; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #eee; }
+    .profit-pos { color: green; font-weight: bold; }
+    .profit-neg { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>📊 MEXC → ODOS</h1>
+
+  <table id="mexc-odos">
+    <thead>
+      <tr>
+        <th>Токен</th>
+        <th>MEXC цена</th>
+        <th>ODOS цена</th>
+        <th>Спред (%)</th>
+        <th>Прибыль (USDT)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  const TOKENS = ["NAKA", "SAND", "NWS"];
+
+  function formatProfit(value) {
+    if (value == null) return "-";
+    const fixed = value.toFixed(4);
+    if (value > 0) return `<span class="profit-pos">+${fixed}</span>`;
+    if (value < 0) return `<span class="profit-neg">${fixed}</span>`;
+    return fixed;
+  }
+
+  async function loadData() {
+    const res = await fetch("/prices");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#mexc-odos tbody");
+    tbody.innerHTML = "";
+
+    for (const token of TOKENS) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${token}</td>
+        <td>${data.mexc?.[token] ? data.mexc[token].toFixed(6) : "-"}</td>
+        <td>${data.odos?.[token] ? data.odos[token].toFixed(6) : "-"}</td>
+        <td>${data.spread?.[token] ? data.spread[token].toFixed(2) : "-"}%</td>
+        <td>${formatProfit(data.profit?.[token])}</td>
+      `;
+      tbody.appendChild(row);
+    }
+  }
+
+  setInterval(loadData, 5000);
+  loadData();
+</script>
+
+</body>
+</html>
