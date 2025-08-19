@@ -1,77 +1,37 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Цены токенов ODOS / MEXC</title>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-  table { border-collapse: collapse; width: 100%; background: #fff; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-  th { background: #eee; }
-  .profit-positive { color: green; font-weight: bold; }
-  .profit-negative { color: red; font-weight: bold; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Цены ODOS → MEXC</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    .warning { color: orange; font-weight: bold; }
+    .error { color: red; font-weight: bold; }
+    .profit-positive { color: green; font-weight: bold; }
+    .profit-negative { color: red; font-weight: bold; }
+  </style>
 </head>
 <body>
+  <h1>Цены ODOS → MEXC</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Токен</th>
+        <th>Цена ODOS (USDT)</th>
+        <th>Цена MEXC (USDT)</th>
+        <th>Спред (%)</th>
+        <th>Прибыль (USDT)</th>
+      </tr>
+    </thead>
+    <tbody id="prices-table">
+      <!-- Данные подгрузятся скриптом -->
+    </tbody>
+  </table>
 
-<h2>Цены токенов ODOS / MEXC</h2>
-<table id="prices-table">
-  <thead>
-    <tr>
-      <th>Токен</th>
-      <th>Цена ODOS (USDT)</th>
-      <th>Цена MEXC (USDT)</th>
-      <th>Спред (%)</th>
-      <th>Прибыль (USDT)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td colspan="5">Загрузка данных...</td></tr>
-  </tbody>
-</table>
-
-<script>
-async function loadPrices() {
-  try {
-    const res = await fetch('/prices');
-    const data = await res.json();
-
-    const tableBody = document.querySelector('#prices-table tbody');
-    tableBody.innerHTML = ''; // очистка таблицы
-
-    for (const token of Object.keys(data.odos)) {
-      const odosPrice = data.odos[token] !== null ? data.odos[token].toFixed(6) : 'Нет данных';
-      const mexcPrice = data.mexc[token] !== null ? data.mexc[token].toFixed(6) : 'Нет данных';
-      const spread = data.spread[token] !== null ? data.spread[token].toFixed(2) : 'Нет данных';
-      const profitValue = data.profit[token];
-
-      let profitDisplay = 'Нет данных';
-      let profitClass = '';
-      if (profitValue !== null) {
-        profitDisplay = profitValue.toFixed(2);
-        profitClass = profitValue >= 0 ? 'profit-positive' : 'profit-negative';
-      }
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${token}</td>
-        <td>${odosPrice}</td>
-        <td>${mexcPrice}</td>
-        <td>${spread}</td>
-        <td class="${profitClass}">${profitDisplay}</td>
-      `;
-      tableBody.appendChild(row);
-    }
-  } catch (err) {
-    console.error('Ошибка загрузки данных:', err);
-  }
-}
-
-// Загрузка каждые 10 секунд
-loadPrices();
-setInterval(loadPrices, 10000);
-</script>
-
+  <script src="script.js"></script>
 </body>
 </html>
