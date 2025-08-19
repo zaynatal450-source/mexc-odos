@@ -1,17 +1,14 @@
 import express from "express";
 import fetch from "node-fetch";
+import fs from "fs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static("public"));
 
-// Токены
-const TOKENS = [
-  { symbol: "NAKA", address: "0x311434160d7537be358930def317afb606c0d737" },
-  { symbol: "SAND", address: "0xbbba073c31bf03b8acf7c28ef0738decf3695683" },
-  { symbol: "NWS",  address: "0x13646e0e2d768d31b75d1a1e375e3e17f18567f2" }
-];
+// === Загружаем список токенов из tokens.json ===
+const TOKENS = JSON.parse(fs.readFileSync("./tokens.json", "utf-8"));
 
 const CHAIN_ID = 137; // Polygon
 const USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"; // USDT (Polygon)
@@ -84,8 +81,8 @@ app.get("/prices", async (req, res) => {
           if (out) {
             const usdtOut = Number(out) / 1e6;
             const usdtAfterFee = usdtOut * (1 - ODOS_FEE);
-            odosPrices[token.symbol] = usdtAfterFee / tokensBought; // цена 1 токена
-            profit[token.symbol] = usdtAfterFee - 50; // прибыль
+            odosPrices[token.symbol] = usdtAfterFee / tokensBought;
+            profit[token.symbol] = usdtAfterFee - 50;
           } else {
             odosPrices[token.symbol] = null;
             profit[token.symbol] = null;
@@ -116,6 +113,5 @@ app.get("/prices", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
-// JavaScript Document
