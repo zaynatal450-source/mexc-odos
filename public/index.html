@@ -29,16 +29,6 @@
   </table>
 
 <script>
-  const TOKENS = ["NAKA", "SAND", "NWS"];
-
-  function formatProfit(value) {
-    if (value == null) return "-";
-    const fixed = value.toFixed(4);
-    if (value > 0) return `<span class="profit-pos">+${fixed}</span>`;
-    if (value < 0) return `<span class="profit-neg">${fixed}</span>`;
-    return fixed;
-  }
-
   async function loadData() {
     const res = await fetch("/prices");
     const data = await res.json();
@@ -46,14 +36,20 @@
     const tbody = document.querySelector("#mexc-odos tbody");
     tbody.innerHTML = "";
 
-    for (const token of TOKENS) {
+    for (const token of Object.keys(data.mexc)) {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${token}</td>
         <td>${data.mexc?.[token] ? data.mexc[token].toFixed(6) : "-"}</td>
         <td>${data.odos?.[token] ? data.odos[token].toFixed(6) : "-"}</td>
         <td>${data.spread?.[token] ? data.spread[token].toFixed(2) : "-"}%</td>
-        <td>${formatProfit(data.profit?.[token])}</td>
+        <td>${
+          data.profit?.[token] == null
+            ? "-"
+            : data.profit[token] > 0
+              ? '<span class="profit-pos">+' + data.profit[token].toFixed(4) + "</span>"
+              : '<span class="profit-neg">' + data.profit[token].toFixed(4) + "</span>"
+        }</td>
       `;
       tbody.appendChild(row);
     }
